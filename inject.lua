@@ -61,11 +61,12 @@ local _vm_read = U.dlsym(libc, "vm_read")
 local _vm_remap = U.dlsym(libc, "vm_remap")
 local _vm_allocate = U.dlsym(libc, "vm_allocate")
 local _vm_deallocate = U.dlsym(libc, "vm_deallocate")
+local _vm_protect = U.dlsym(libc, "vm_protect")
 local _getpid = U.dlsym(libc, "getpid")
 local _proc_regionfilename = U.dlsym(libc, "proc_regionfilename")
 local ptr = U.getcstr
 
-local PID = 2090
+local PID = 3498
 
 local task_for_pid = (function()
     local _task_for_pid = U.dlsym(libc, "task_for_pid")
@@ -102,12 +103,20 @@ local inheritance = 0
 -- print(U.call(_vm_remap, src_task, target_address, size, mask, VM_FLAGS_ANYWHERE, src_task, src_address, copy, cur_protection, max_protection, inheritance))
 -- print(string.format("%x %x %x", target_address:u64(0), cur_protection:u64(0), max_protection:u64(0)))
 -- local p = U.dlsym(libc, "putc") - 0x34 + 0xb8
+local PAGESIZE = 0x4000
 local p = U.ret0()
-local o = p % 0x4000
-src_address = p - p % 0x4000
-print(string.format("%x", U.readu32(p)), U.call(p), p % 0x4000)
-print(U.call(_vm_remap, src_task, target_address, size, mask, VM_FLAGS_ANYWHERE, src_task, src_address, copy, cur_protection, max_protection, inheritance))
-print(string.format("%x %x %x", target_address:u64(0), cur_protection:u64(0), max_protection:u64(0)))
-print(U.call(target_address:u64(0) + o))
+local o = p % PAGESIZE
+src_address = p - p % PAGESIZE
+print(string.format("%x", U.readu32(p)), U.call(p), p % PAGESIZE)
+-- print(U.call(_vm_remap, src_task, target_address, size, mask, VM_FLAGS_ANYWHERE, src_task, src_address, copy, cur_protection, max_protection, inheritance))
+-- print(string.format("%x %x %x", target_address:u64(0), cur_protection:u64(0), max_protection:u64(0)))
+-- print(U.call(target_address:u64(0) + o))
+
+print(U.call(_vm_allocate, src_task, target_address, PAGESIZE, VM_FLAGS_ANYWHERE))
+print(U.call(_vm_protect, src_task, target_address:u64(0), PAGESIZE, 0, 3))
+U.writes64(target_address:u64(0), 12346789)
+print(U.call(_vm_protect, src_task, target_address:u64(0), PAGESIZE, 0, 5))
+src_address = target_address:u64(0)
 print(U.call(_vm_remap, target_task, target_address, size, mask, VM_FLAGS_ANYWHERE, src_task, src_address, copy, cur_protection, max_protection, inheritance))
 print(string.format("%x %x %x", target_address:u64(0), cur_protection:u64(0), max_protection:u64(0)))
+
