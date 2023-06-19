@@ -66,7 +66,7 @@ local _getpid = U.dlsym(libc, "getpid")
 local _proc_regionfilename = U.dlsym(libc, "proc_regionfilename")
 local ptr = U.getcstr
 
-local PID = 3498
+local PID = 1
 
 local task_for_pid = (function()
     local _task_for_pid = U.dlsym(libc, "task_for_pid")
