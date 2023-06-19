@@ -11,6 +11,7 @@ all: $(PROGS)
 
 clean:
 	rm -f $(PROGS)
+	$(MAKE) -C lua-5.3.6 clean
 
 lua: always_rebuild
 	$(MAKE) -C lua-5.3.6 iphoneos
