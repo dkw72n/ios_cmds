@@ -47,7 +47,9 @@ local _setup1, _errmsg1 = pcall(function()
     ]]
 end)
 assert(_setup1, _errmsg1)
-
+local printf = function(...)
+    print(string.format(...))
+end
 -- print("Hi")
 -- print(unsafe)
 
@@ -57,8 +59,9 @@ local mach_task_self = U.dlsym(libc, "mach_task_self");
 -- print(string.format("%x", task_self))
 local mach_vm_region = U.dlsym(libc, "mach_vm_region")
 
-local _vm_read = U.dlsym(libc, "vm_read")
-local _vm_remap = U.dlsym(libc, "vm_remap")
+local _vm_read = U.dlsym(libc, "mach_vm_read_overwrite")
+local _vm_write = U.dlsym(libc, "mach_vm_write")
+local _vm_remap = U.dlsym(libc, "mach_vm_remap")
 local _vm_allocate = U.dlsym(libc, "vm_allocate")
 local _vm_deallocate = U.dlsym(libc, "vm_deallocate")
 local _vm_protect = U.dlsym(libc, "vm_protect")
@@ -66,7 +69,7 @@ local _getpid = U.dlsym(libc, "getpid")
 local _proc_regionfilename = U.dlsym(libc, "proc_regionfilename")
 local ptr = U.getcstr
 
-local PID = 1
+local PID = 4032
 
 local task_for_pid = (function()
     local _task_for_pid = U.dlsym(libc, "task_for_pid")
@@ -112,11 +115,34 @@ print(string.format("%x", U.readu32(p)), U.call(p), p % PAGESIZE)
 -- print(string.format("%x %x %x", target_address:u64(0), cur_protection:u64(0), max_protection:u64(0)))
 -- print(U.call(target_address:u64(0) + o))
 
+
+--[==[ -- SIGKILL: CODESIGNING
 print(U.call(_vm_allocate, src_task, target_address, PAGESIZE, VM_FLAGS_ANYWHERE))
 print(U.call(_vm_protect, src_task, target_address:u64(0), PAGESIZE, 0, 3))
-U.writes64(target_address:u64(0), 12346789)
+U.writes64(target_address:u64(0), 0xd65f03c0) -- RET
 print(U.call(_vm_protect, src_task, target_address:u64(0), PAGESIZE, 0, 5))
-src_address = target_address:u64(0)
-print(U.call(_vm_remap, target_task, target_address, size, mask, VM_FLAGS_ANYWHERE, src_task, src_address, copy, cur_protection, max_protection, inheritance))
-print(string.format("%x %x %x", target_address:u64(0), cur_protection:u64(0), max_protection:u64(0)))
+-- src_address = target_address:u64(0)
 
+-- ]==]
+assert(U.call(_vm_remap, target_task, target_address, size, mask, VM_FLAGS_ANYWHERE, src_task, src_address, copy, cur_protection, max_protection, inheritance) == 0)
+printf("remap: %x %x %x", target_address:u64(0), cur_protection:u64(0), max_protection:u64(0))
+
+
+local malloc_logger = U.dlsym(libc, "malloc_logger")
+-- local OFFSET = U.dlsym(libc, "malloc") - 0x190EE64F8
+-- local malloc_logger = OFFSET + 0x1F2C14048
+printf("malloc_logger@%x: %x ", malloc_logger, U.readu64(malloc_logger))
+printf("malloc %x", U.dlsym(libc, "malloc"))
+
+local data = string.rep('v', 8)
+local dataCnt = new_ptr(0)
+assert(U.call(_vm_read, target_task, malloc_logger, 8, data, dataCnt) == 0)
+printf("_vm_read:%x %x", data:u64(0), dataCnt:u64(0))
+-- data = new_ptr(OFFSET + 0x1B9E51C48)
+data = new_ptr(target_address:u64(0) + o)
+assert(U.call(_vm_write, target_task, malloc_logger, data, 8) == 0)
+--[==[
+local dlerror = U.dlsym(libc, "dlerror")
+local aa,bb = U.dlopen("/var/root/frida/usr/lib/frida/frida-agent.dylib",2)
+print(tostring(aa), tostring(bb))
+]==]
